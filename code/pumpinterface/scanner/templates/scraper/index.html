@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>pump.scanner</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg:       #080b0f;
+            --surface:  #0d1117;
+            --border:   #1a1f2e;
+            --muted:    #4a5568;
+            --text:     #e8eaed;
+            --green:    #00ff88;
+            --red:      #fc5c65;
+            --amber:    #f6ad55;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Syne', sans-serif;
+            min-height: 100vh;
+            padding: 0 2rem 4rem;
+        }
+
+        /* ── top bar ── */
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.4rem 0 1.8rem;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 2rem;
+        }
+
+        .logo {
+            font-family: 'Space Mono', monospace;
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--green);
+            letter-spacing: -1px;
+        }
+
+        .logo span { color: #fff; }
+
+        .status {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.65rem;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: var(--muted);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: var(--green);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.3; }
+        }
+
+        /* ── controls ── */
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .section-label {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.6rem;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            color: var(--muted);
+            flex: 1;
+        }
+
+        .sort-btn {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.65rem;
+            letter-spacing: 2px;
+            padding: 6px 14px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--muted);
+            cursor: pointer;
+            transition: all 0.15s;
+            text-transform: uppercase;
+        }
+
+        .sort-btn:hover, .sort-btn.active {
+            border-color: var(--green);
+            color: var(--green);
+        }
+
+        /* ── card grid ── */
+        #card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 1rem;
+        }
+
+        /* ── card ── */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+        }
+
+        .card:hover {
+            transform: translateY(-3px);
+            border-color: #00ff8844;
+            box-shadow: 0 0 28px #00ff8812;
+        }
+
+        /* sparkline area */
+        .card-chart {
+            height: 110px;
+            background: #060a0e;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-chart svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* card body */
+        .card-body { padding: 1rem 1.1rem 1.1rem; }
+
+        .card-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.75rem;
+        }
+
+        .token-symbol {
+            font-family: 'Syne', sans-serif;
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: #fff;
+            line-height: 1;
+        }
+
+        .token-addr {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.55rem;
+            color: #2d3748;
+            margin-top: 3px;
+        }
+
+        .conf-badge {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 8px;
+            border: 1px solid;
+        }
+
+        .conf-high   { color: var(--green); border-color: #00ff8840; background: #00ff8812; }
+        .conf-medium { color: var(--amber); border-color: #f6ad5540; background: #f6ad5512; }
+        .conf-low    { color: var(--red);   border-color: #fc5c6540; background: #fc5c6512; }
+
+        /* signal bars */
+        .signals {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 0.85rem;
+        }
+
+        .signal { flex: 1; }
+
+        .signal-label {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.55rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 4px;
+        }
+
+        .bar-track {
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.4s ease;
+        }
+
+        .bar-buy  { background: linear-gradient(90deg, #00c96b, var(--green)); }
+        .bar-sell { background: linear-gradient(90deg, #c9002a, var(--red)); }
+
+        .signal-val {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.6rem;
+            color: var(--muted);
+            margin-top: 3px;
+        }
+
+        /* meta row */
+        .meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 0.85rem;
+        }
+
+        .meta-label {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.55rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .meta-value {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #a0aec0;
+        }
+
+        .trade-count {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.55rem;
+            color: #2d3748;
+        }
+
+        /* buttons */
+        .btn-row { display: flex; gap: 8px; }
+
+        .btn {
+            flex: 1;
+            padding: 8px 0;
+            border-radius: 8px;
+            border: 1px solid;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.15s;
+            text-transform: uppercase;
+        }
+
+        .btn-buy  { color: var(--green); border-color: #00ff8840; background: #00ff8812; }
+        .btn-sell { color: var(--red);   border-color: #fc5c6540; background: #fc5c6512; }
+
+        .btn-buy:hover  { background: #00ff8825; border-color: var(--green); }
+        .btn-sell:hover { background: #fc5c6525; border-color: var(--red); }
+
+        /* empty state */
+        #empty {
+            grid-column: 1/-1;
+            text-align: center;
+            padding: 6rem 0;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--muted);
+            letter-spacing: 3px;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo">pump<span>.</span>scanner</div>
+    <div class="status"><div class="dot"></div> live feed</div>
+</header>
+
+<div class="controls">
+    <div class="section-label">— active tokens</div>
+    <button class="sort-btn active" onclick="setSort('confidence')">Confidence</button>
+    <button class="sort-btn" onclick="setSort('trades')">Trades</button>
+    <button class="sort-btn" onclick="setSort('mcap')">MCap</button>
+</div>
+
+<div id="card-grid">
+    <div id="empty">waiting for live data…</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/leo-profanity/src/index.js"></script>
+<script>
+    // ── state ──────────────────────────────────────────────────────────────
+    const tokens   = {};   // mint -> { symbol, trades:[], tradeCount, peakMcap, confidence, buySignal, sellSignal }
+    let   sortMode = 'confidence';
+
+    // ── WebSocket ──────────────────────────────────────────────────────────
+    const ws = new WebSocket(`ws://${window.location.host}/ws/feed/`);
+
+    ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        const mint = data.mint;
+
+        if (data.remove) {
+            const card = document.getElementById(`card-${data.mint}`);
+            if (card) card.remove();
+            delete tokens[data.mint];
+            return;
+        }
+
+        if (!tokens[mint]) {
+            tokens[mint] = {
+                symbol:     data.symbol,
+                trades:     [],
+                tradeCount: 0,
+                mcap:   0,
+                confidence: data.confidence,
+                buySignal:  mockSignal(mint, 'buy'),
+                sellSignal: mockSignal(mint, 'sell'),
+            };
+        }
+
+        const tok = tokens[mint];
+        tok.trades.push(data.market_cap);
+        if (tok.trades.length > 150) tok.trades.shift();
+        tok.tradeCount++;
+        tok.mcap = data.market_cap;
+        tok.confidence = data.confidence || tok.confidence; 
+
+        if(tok.trades.length >= 5) {
+            renderCard(mint);
+        }
+        
+        removeEmpty();
+    };
+
+    ws.onclose = () => console.log('WS closed');
+    ws.onerror = (e) => console.error('WS error', e);
+
+    // ── mock scores (replace with ML later) ───────────────────────────────
+    function hashMint(mint) {
+        let h = 0;
+        for (const c of mint) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+        return h;
+    }
+
+    function mockConfidence(mint) {
+        return ((hashMint(mint) % 770) + 200) / 10;   // 20.0 – 97.0
+    }
+
+    function mockSignal(mint, side) {
+        const seed = hashMint(mint + side);
+        return ((seed % 850) + 100) / 10;              // 10.0 – 95.0
+    }
+
+    // ── rendering ──────────────────────────────────────────────────────────
+    function fmtMcap(v) {
+        if (v >= 1e6) return `$${(v/1e6).toFixed(2)}M`;
+        if (v >= 1e3) return `$${(v/1e3).toFixed(1)}K`;
+        return `$${v.toFixed(0)}`;
+    }
+
+    function confClass(score) {
+        if (score >= 70) return 'conf-high';
+        if (score >= 45) return 'conf-medium';
+        return 'conf-low';
+    }
+
+    function sparkline(prices, color) {
+        if (prices.length < 2) return '';
+        const W = 300, H = 90;
+        const mn = Math.min(...prices), mx = Math.max(...prices);
+        const rng = mx - mn || 1;
+        const pts = prices.map((p, i) => {
+            const x = (i / (prices.length - 1)) * W;
+            const y = H - ((p - mn) / rng) * H;
+            return `${x.toFixed(1)},${y.toFixed(1)}`;
+        });
+        const path = 'M ' + pts.join(' L ');
+        const id   = 'g' + Math.abs(hashMint(prices[0].toString())) % 9999;
+        return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="${color}" stop-opacity="0.25"/>
+                <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <path d="${path} L ${W} ${H} L 0 ${H} Z" fill="url(#${id})"/>
+            <path d="${path}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round"/>
+        </svg>`;
+    }
+
+    LeoProfanity.add(['custom_crypto_slur', 'another_one']);
+    function cleanSymbol(sym) {
+    sym = String(sym ?? '').trim();
+
+    if (!sym) return '***';
+
+    if (LeoProfanity.check(sym)) {
+        return `HIDDEN`;
+    }
+
+    return sym;
+}
+    function renderCard(mint) {
+        const tok   = tokens[mint];
+        const conf  = tok.confidence;
+        const color = tok.trades.length > 1 && tok.trades.at(-1) >= tok.trades[0]
+                      ? '#00ff88' : '#fc5c65';
+
+        const html = `
+        <div class="card-chart">${sparkline(tok.trades, color)}</div>
+        <div class="card-body">
+          <div class="card-top">
+            <div>
+              <div class="token-symbol">${cleanSymbol(tok.symbol)}</div>
+              <div class="token-addr">${mint.slice(0,12)}…</div>
+            </div>
+            <div class="conf-badge ${confClass(conf)}">${conf.toFixed(1)}</div>
+          </div>
+
+          <div class="signals">
+            <div class="signal">
+              <div class="signal-label">Buy</div>
+              <div class="bar-track"><div class="bar-fill bar-buy" style="width:${tok.buySignal}%"></div></div>
+              <div class="signal-val">${tok.buySignal.toFixed(0)}/100</div>
+            </div>
+            <div class="signal">
+              <div class="signal-label">Sell</div>
+              <div class="bar-track"><div class="bar-fill bar-sell" style="width:${tok.sellSignal}%"></div></div>
+              <div class="signal-val">${tok.sellSignal.toFixed(0)}/100</div>
+            </div>
+          </div>
+
+          <div class="meta">
+            <div>
+              <div class="meta-label">MCap</div>
+              <div class="meta-value">${fmtMcap(tok.mcap)}</div>
+            </div>
+            <div class="trade-count">${tok.tradeCount} trades</div>
+          </div>
+
+          <div class="btn-row">
+            <button class="btn btn-buy"  onclick="event.stopPropagation()">▲ BUY</button>
+            <button class="btn btn-sell" onclick="event.stopPropagation()">▼ SELL</button>
+          </div>
+        </div>`;
+
+        let card = document.getElementById(`card-${mint}`);
+        if (!card) {
+            card = document.createElement('div');
+            card.className = 'card';
+            card.id = `card-${mint}`;
+            document.getElementById('card-grid').appendChild(card);
+        }
+        card.innerHTML = html;
+    }
+
+    function removeEmpty() {
+        const empty = document.getElementById('empty');
+        if (empty) empty.remove();
+    }
+
+    // ── sorting ────────────────────────────────────────────────────────────
+    function setSort(mode) {
+        sortMode = mode;
+        document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+        event.target.classList.add('active');
+        sortCards();
+    }
+
+    function sortCards() {
+        const grid  = document.getElementById('card-grid');
+        const cards = [...grid.querySelectorAll('.card')];
+        cards.sort((a, b) => {
+            const ta = tokens[a.id.replace('card-', '')];
+            const tb = tokens[b.id.replace('card-', '')];
+            if (!ta || !tb) return 0;
+            if (sortMode === 'confidence') return tb.confidence - ta.confidence;
+            if (sortMode === 'trades')     return tb.tradeCount - ta.tradeCount;
+            if (sortMode === 'mcap')       return tb.mcap  - mcap;
+            return 0;
+        });
+        cards.forEach(c => grid.appendChild(c));
+    }
+
+    // re-sort every 5 seconds
+    setInterval(sortCards, 5000);
+</script>
+
+</body>
+</html>
